@@ -3,6 +3,85 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const loginButton = document.getElementById("login-button");
+  const loginStatus = document.getElementById("login-status");
+  const loginModal = document.getElementById("login-modal");
+  const loginForm = document.getElementById("login-form");
+  const cancelLoginButton = document.getElementById("cancel-login");
+  const loginUsername = document.getElementById("login-username");
+  const loginPassword = document.getElementById("login-password");
+  const authNote = document.getElementById("auth-note");
+
+  let isTeacherLoggedIn = false;
+  const teacherCredentials = {
+    username: "teacher",
+    password: "letmein",
+  };
+
+  function renderLoginStatus() {
+    if (isTeacherLoggedIn) {
+      loginStatus.textContent = "Logged in as teacher";
+      loginButton.textContent = "Logout";
+      authNote.classList.add("hidden");
+    } else {
+      loginStatus.textContent = "Teacher not logged in";
+      loginButton.textContent = "Teacher Login";
+      authNote.classList.remove("hidden");
+    }
+  }
+
+  function showLoginModal() {
+    loginModal.classList.remove("hidden");
+  }
+
+  function hideLoginModal() {
+    loginModal.classList.add("hidden");
+    loginForm.reset();
+  }
+
+  loginButton.addEventListener("click", () => {
+    if (isTeacherLoggedIn) {
+      isTeacherLoggedIn = false;
+      renderLoginStatus();
+      fetchActivities();
+      messageDiv.textContent = "Teacher logged out.";
+      messageDiv.className = "info";
+      messageDiv.classList.remove("hidden");
+      setTimeout(() => messageDiv.classList.add("hidden"), 3000);
+    } else {
+      showLoginModal();
+    }
+  });
+
+  loginForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const username = loginUsername.value.trim();
+    const password = loginPassword.value;
+
+    if (
+      username === teacherCredentials.username &&
+      password === teacherCredentials.password
+    ) {
+      isTeacherLoggedIn = true;
+      hideLoginModal();
+      renderLoginStatus();
+      messageDiv.textContent = "Teacher logged in successfully.";
+      messageDiv.className = "success";
+      messageDiv.classList.remove("hidden");
+      setTimeout(() => messageDiv.classList.add("hidden"), 3000);
+      fetchActivities();
+    } else {
+      messageDiv.textContent = "Invalid username or password.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+    }
+  });
+
+  cancelLoginButton.addEventListener("click", () => {
+    hideLoginModal();
+  });
+
+  renderLoginStatus();
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -10,8 +89,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch("/activities");
       const activities = await response.json();
 
-      // Clear loading message
+      // Clear loading message and reset activity selector
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -28,10 +108,12 @@ document.addEventListener("DOMContentLoaded", () => {
               <h5>Participants:</h5>
               <ul class="participants-list">
                 ${details.participants
-                  .map(
-                    (email) =>
-                      `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
-                  )
+                  .map((email) => {
+                    const deleteButton = isTeacherLoggedIn
+                      ? `<button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button>`
+                      : "";
+                    return `<li><span class="participant-email">${email}</span>${deleteButton}</li>`;
+                  })
                   .join("")}
               </ul>
             </div>`
@@ -113,6 +195,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Handle form submission
   signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (!isTeacherLoggedIn) {
+      messageDiv.textContent = "Teacher login required to register students.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      setTimeout(() => {
+        messageDiv.classList.add("hidden");
+      }, 5000);
+      return;
+    }
 
     const email = document.getElementById("email").value;
     const activity = document.getElementById("activity").value;
